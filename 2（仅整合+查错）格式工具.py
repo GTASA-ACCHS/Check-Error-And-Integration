@@ -64,6 +64,10 @@ def check_gtavc_file(file_path, crash_dump_file):
             # 检查等号前面是否有内容
             if not line.split('=')[0].strip():
                 crash_dump_file.write(f'{file_path}:{i+1}: {line.strip()} (符号=前面缺少内容啊！！！！！！)\n')
+
+            # 添加判断，如果符号后面没有内容，就将此行输出至CrashDump.txt
+            if '=' in line and not line.split('=')[1].strip():
+                crash_dump_file.write(f'{file_path}:{i+1}: {line.strip()} (符号=后面缺少内容啊！！！！！！)\n')
             
             # 添加判断，如果行中没有[或]或=三个之一，就将本行输出至CrashDump.txt
             if '[' not in line and ']' not in line and '=' not in line:
