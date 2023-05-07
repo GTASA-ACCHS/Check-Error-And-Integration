@@ -53,20 +53,16 @@ def check_gtavc_file(file_path, crash_dump_file):
                     # 如果等号前有空格，输出错误信息
                     crash_dump_file.write(f'{file_path}:{i+1}: {line.strip()} (=号出现了空格啊！！！！！！)\n')
             
-            # 检查同一行上的多个等号
-            if line.count('=') > 1:
-                crash_dump_file.write(f'{file_path}:{i+1}: {line.strip()} (有两个=号啊！！！！！！，如果前缀是FEI_BTD或FEI_BTU的话就没啥事了)\n')
-            
             # 检查制表符缩进
-            if '\t' in line:
-                crash_dump_file.write(f'{file_path}:{i+1}: {line.strip()} (有Tab的缩进符啊！！！！！！)\n')
+            if '\t' in line.split('=')[0]:
+                crash_dump_file.write(f'{file_path}:{i+1}: {line.strip()} (=号前有Tab的缩进符啊！！！！！！)\n')
             
             # 检查等号前面是否有内容
             if not line.split('=')[0].strip():
                 crash_dump_file.write(f'{file_path}:{i+1}: {line.strip()} (符号=前面缺少内容啊！！！！！！)\n')
 
             # 添加判断，如果符号后面没有内容，就将此行输出至CrashDump.txt
-            if '=' in line and not line.split('=')[1].strip():
+            if '=' in line and not line.split('=', 1)[1].strip():
                 crash_dump_file.write(f'{file_path}:{i+1}: {line.strip()} (符号=后面缺少内容啊！！！！！！)\n')
             
             # 添加判断，如果行中没有[或]或=三个之一，就将本行输出至CrashDump.txt
@@ -75,7 +71,10 @@ def check_gtavc_file(file_path, crash_dump_file):
 
             # 检查符号=前的内容是否与之前的某行完全匹配
             if last_line is not None and last_line.strip().startswith(line.split('=')[0].strip()):
-                crash_dump_file.write(f'{file_path}:{i+1}: {line.strip()} (符号=前的内容与之前某一行完全匹配啊！！！！！！)\n')
+                error_message = f'{file_path}:{i+1}: {line.strip()} (符号=前的内容与之前某一行完全匹配啊！！！！！！)\n'
+                crash_dump_file.write(error_message)
+                dup_lines.add(last_line)
+                dup_lines.add(line)
             last_line = line
             
             # 检查重复行（完全相同）
@@ -87,6 +86,44 @@ def check_gtavc_file(file_path, crash_dump_file):
                 dup_lines.add(last_line)
                 dup_lines.add(line)
             last_line = line
+
+    # 添加判断，如果含有符号[或]的行，在文本中重复出现，就将此行输出CrashDump.txt
+    with codecs.open(file_path, 'r', encoding='utf-8') as f:
+        all_lines = f.readlines()
+        for count, line in enumerate(all_lines):
+            if '[' in line or ']' in line:
+                if all_lines.count(line) > 1:
+                    crash_dump_file.write(f'{file_path}:{count+1}: {line.strip()} (含符号[]的行在文本中被重复出现)\n')
+    
+    # 添加判断，如果除了含符号[或]和空行的行外，其余任意几行中的符号=前的内容出现一模一样，就将此行输出CrashDump.txt
+    with codecs.open(file_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+        start = None
+        for i in range(len(lines)):
+           if '[' in lines[i] and ']' in lines[i]:
+                if start is not None:
+                    content_set = set()
+                    for line in lines[start:i+1]:
+                        if line.strip() and '=' in line:
+                            content = line.split('=')[0].strip()
+                            if content in content_set:
+                                crash_dump_file.write(f'{file_path}:{lines.index(line)+1}: {line.strip()} (符号=前的内容完全一样啊！！！！！！)\n')
+                            else:
+                                content_set.add(content)
+                start = i+1
+        
+        if start is not None:
+            content_set = set()
+            for line in lines[start:]:
+                if line.strip() and '=' in line:
+                    content = line.split('=')[0].strip()
+                    if content in content_set:
+                        crash_dump_file.write(f'{file_path}:{lines.index(line)+1}: {line.strip()} (符号=前的内容完全一样啊！！！！！！)\n')
+                    else:
+                        content_set.add(content)
+
+
+                    
 
 # 主函数
 def main():
